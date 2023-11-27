@@ -7,8 +7,10 @@ from .client import Client
 from .client.models.status import Status
 from .client.models.sequence import Sequence
 from .client.models.program import Program
+from .client.models.zone import Zone
 from .client.types import Response
 from .client.api.default import get_v1
+from .client.api.default import get_v1_zones
 from .client.api.default import get_v1_sequences
 from .client.api.default import post_v_1_zones_zone_id_sequence
 from .client.api.default import delete_v_1_zones_zone_id_sequence
@@ -37,7 +39,7 @@ async def async_setup_entry(
     lights: list[EverlightsLight] = []
     for zone in sdata.zones:
         lights.append(EverlightsLight(client, zone.serial))
-    async_add_entities(lights, update_before_add=False)
+    async_add_entities(lights, update_before_add=True)
 
 class EverlightsLight(LightEntity):
     _attr_supported_features = LightEntityFeature.EFFECT
@@ -49,12 +51,6 @@ class EverlightsLight(LightEntity):
         self._avail = True
         self._onoff = False
         self._attr_supported_features |= LightEntityFeature.EFFECT
-        self._sequences = get_v1_sequences.sync(client=self._client)
-        self._effects: list[str] = []
-        for seq in self._sequences:
-            self._effects.append(seq.alias)
-        self._effects.sort()
-        self._effect = self._effects[0]
 
     @property
     def unique_id(self) -> str:
@@ -85,6 +81,10 @@ class EverlightsLight(LightEntity):
         return self._onoff
 
     def update(self) -> None:
+        zones: list[Zone] = get_v1_zones.sync(client=self._client)
+        for zone in zones:
+            if zone.serial == self._serial:
+                self._onoff = zone.active
         self._sequences = get_v1_sequences.sync(client=self._client)
         self._effects: list[str] = []
         for seq in self._sequences:
